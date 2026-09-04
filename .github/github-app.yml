@@ -1,0 +1,28 @@
+instructions: |
+  This is Northridge Video, an npm workspaces monorepo (gateway + apps/video, music, books, shared).
+  Use the existing npm scripts for setup, seeding, running, and testing — do not introduce new tooling.
+
+scripts:
+  - name: Setup
+    command: npm install
+    triggers:
+      - session.create
+  - name: Seed database
+    command: npm run db:reset
+    triggers:
+      - session.create
+  - name: Run storefront
+    command: npm run dev
+  - name: Typecheck
+    command: npm run typecheck
+  - name: Unit tests
+    command: npm test
+  - name: E2E tests
+    command: npm run test:e2e
+
+server_ready_pattern: '\[gateway\]\s+(https?://\S+)'
+auto_open_in_browser: true
+
+automation:
+  auto_issue_session: true
+  remote_control: false
