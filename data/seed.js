@@ -497,9 +497,18 @@ try {
     return t;
   };
 
-  let isbnCounter = 5; // continue after the curated 979-8-40000-0000X
+  let isbnCounter = 5; // continue after the curated 979-8-40000-00X-X rows
+  function isbn13CheckDigit(firstTwelveDigits) {
+    const sum = [...firstTwelveDigits].reduce(
+      (total, digit, index) => total + Number(digit) * (index % 2 === 0 ? 1 : 3),
+      0,
+    );
+    return String((10 - (sum % 10)) % 10);
+  }
   function nextIsbn() {
-    return '979-8-40000-' + String(isbnCounter++).padStart(5, '0').replace(/(\d{4})(\d)/, '$1-$2');
+    const publication = String(isbnCounter++).padStart(3, '0');
+    const firstTwelveDigits = `979840000${publication}`;
+    return `979-8-40000-${publication}-${isbn13CheckDigit(firstTwelveDigits)}`;
   }
 
   // ---- Generate VIDEO: 27 films + 6 hardware (curated 8 -> total 41) ------
