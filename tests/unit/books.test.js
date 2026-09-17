@@ -44,6 +44,20 @@ test('a multi-author book flattens its authors into one string', () => {
   assert.ok(multi.authors.split(',').length >= 2);
 });
 
+test('generated book ISBNs use the curated grouping shape and valid check digit', () => {
+  const generatedBooks = allItems().filter((item) => Number(item.sku.slice(3)) > 4);
+  assert.ok(generatedBooks.length > 0, 'expected generated books in seeded catalog');
+  const generatedIsbns = new Set(generatedBooks.map((item) => item.isbn));
+
+  for (const item of generatedBooks) {
+    assert.match(item.isbn, /^979-8-40000-\d{3}-\d$/);
+  }
+
+  assert.ok(generatedIsbns.has('979-8-40000-005-8'));
+  assert.ok(generatedIsbns.has('979-8-40000-010-2'));
+  assert.ok(generatedIsbns.has('979-8-40000-039-3'));
+});
+
 test('GET /books/api/products/:sku returns a single product', () => {
   const first = getPage(1).items[0];
   const res = makeRes();
