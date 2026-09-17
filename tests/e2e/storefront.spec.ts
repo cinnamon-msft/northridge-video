@@ -29,6 +29,51 @@ test('Books (React) renders its catalog with flattened authors', async ({
   await expect(page.locator('.nrv-product').first()).toBeVisible();
 });
 
+test('Books genre filter narrows results and resets pagination', async ({
+  page,
+}) => {
+  await page.goto('/books/');
+  await page.locator('.pagination .page-link', { hasText: '2' }).click();
+  await expect(page.locator('.pagination .active')).toContainText('2');
+
+  const genreFilter = page.locator('#nrv-books-genre-filter');
+  await expect(genreFilter).toBeVisible();
+
+  const firstGenre = await genreFilter.evaluate((select) => {
+    const element = select as HTMLSelectElement;
+    const option = Array.from(element.options).find(
+      (candidate) => candidate.value.length > 0,
+    );
+    return option?.value ?? '';
+  });
+  expect(firstGenre).not.toBe('');
+
+  const filteredResponsePromise = page.waitForResponse((response) => {
+    const requestUrl = response.url();
+    return (
+      response.request().method() === 'GET' &&
+      requestUrl.includes('/books/api/products?') &&
+      requestUrl.includes(`genre=${encodeURIComponent(firstGenre)}`)
+    );
+  });
+
+  await genreFilter.selectOption(firstGenre);
+  const filteredBody = (await (await filteredResponsePromise).json()) as {
+    page: number;
+    totalPages: number;
+  };
+  expect(filteredBody.page).toBe(1);
+  if (filteredBody.totalPages > 1) {
+    await expect(page.locator('.pagination .active')).toContainText('1');
+  }
+  await expect(page.locator('.nrv-results-summary')).toContainText(firstGenre);
+
+  const genresOnPage = await page
+    .locator('.nrv-product')
+    .evaluateAll((cards) => cards.map((card) => card.getAttribute('data-genre')));
+  expect(genresOnPage.every((genre) => genre === firstGenre)).toBe(true);
+});
+
 test('cross-vertical search returns results spanning departments', async ({
   page,
 }) => {

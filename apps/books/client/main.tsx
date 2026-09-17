@@ -4,7 +4,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import '@northridge/shared/theme.css';
 import { addToCart } from '@northridge/shared/cart.js';
 import { mountCartBadge } from '@northridge/shared/cart-ui.js';
-import type { BookProduct, Page } from '../api/index.ts';
+import type { BookCatalogPage, BookProduct } from '../api/index.ts';
 
 mountCartBadge();
 
@@ -57,24 +57,40 @@ function Pager({
 }
 
 function Catalog() {
-  const [data, setData] = useState<Page<BookProduct> | null>(null);
+  const [data, setData] = useState<BookCatalogPage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [genre, setGenre] = useState('');
 
   useEffect(() => {
-    fetch('/books/api/products?page=' + page)
+    const params = new URLSearchParams({ page: String(page) });
+    if (genre) {
+      params.set('genre', genre);
+    }
+    fetch('/books/api/products?' + params.toString())
       .then((res) => {
         if (!res.ok) throw new Error('Failed to load catalog: ' + res.status);
-        return res.json() as Promise<Page<BookProduct>>;
+        return res.json() as Promise<BookCatalogPage>;
       })
       .then(setData)
       .catch((err: unknown) => setError(String(err)));
-  }, [page]);
+  }, [page, genre]);
 
   function selectPage(p: number) {
     setPage(p);
     window.scrollTo({ top: 0 });
   }
+
+  function selectGenre(nextGenre: string) {
+    setGenre(nextGenre);
+    setPage(1);
+    window.scrollTo({ top: 0 });
+  }
+
+  const selectedGenre = data?.selectedGenre ?? null;
+  const resultSummary = selectedGenre
+    ? `${data?.total ?? 0} ${selectedGenre} items across ${data?.totalPages ?? 1} pages`
+    : `${data?.total ?? 0} items across ${data?.totalPages ?? 1} pages`;
 
   if (error) return <div className="container my-4"><div className="alert alert-danger">{error}</div></div>;
   if (!data) return <div className="container my-4"><p className="text-muted">Loading the books department…</p></div>;
@@ -84,11 +100,33 @@ function Catalog() {
       <h1>Books</h1>
       <p className="text-muted">
         Fiction, science fiction, fantasy and more.{' '}
-        <span className="small">({data.total} items)</span>
+        <span className="small nrv-results-summary">({resultSummary})</span>
       </p>
+      <div className="form-group col-sm-6 col-lg-4 pl-0">
+        <label htmlFor="nrv-books-genre-filter" className="small font-weight-bold mb-1">
+          Genre
+        </label>
+        <select
+          id="nrv-books-genre-filter"
+          className="form-control nrv-genre-filter"
+          value={genre}
+          onChange={(event) => selectGenre(event.currentTarget.value)}
+        >
+          <option value="">All genres</option>
+          {data.genres.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      </div>
       <div className="row">
         {data.items.map((item) => (
-          <div className="col-sm-6 col-lg-4 mb-4 nrv-product" key={item.sku}>
+          <div
+            className="col-sm-6 col-lg-4 mb-4 nrv-product"
+            key={item.sku}
+            data-genre={item.genre ?? ''}
+          >
             <div className="card h-100">
               <div className="card-body d-flex flex-column">
                 <h5 className="card-title">
