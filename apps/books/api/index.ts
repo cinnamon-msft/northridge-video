@@ -23,6 +23,11 @@ export interface Page<T> {
   totalPages: number;
 }
 
+export interface BookCatalogPage extends Page<BookProduct> {
+  genres: string[];
+  selectedGenre: string | null;
+}
+
 const PAGE_SIZE = 12;
 const db = openDb({ readonly: true });
 
@@ -32,7 +37,23 @@ const pageStmt = db.prepare(
     ORDER BY title
     LIMIT :limit OFFSET :offset`,
 );
+const pageByGenreStmt = db.prepare(
+  `SELECT sku, title, format, genre, publisher, isbn, authors, release_date, description, price_cents
+     FROM book_catalog
+    WHERE genre = :genre
+    ORDER BY title
+    LIMIT :limit OFFSET :offset`,
+);
 const countStmt = db.prepare('SELECT count(*) AS n FROM book_catalog');
+const countByGenreStmt = db.prepare(
+  'SELECT count(*) AS n FROM book_catalog WHERE genre = :genre',
+);
+const genresStmt = db.prepare(
+  `SELECT DISTINCT genre
+     FROM book_catalog
+    WHERE genre IS NOT NULL
+    ORDER BY genre`,
+);
 const bySkuStmt = db.prepare(
   `SELECT sku, title, format, genre, publisher, isbn, authors, release_date, description, price_cents
      FROM book_catalog
@@ -51,6 +72,12 @@ function resolvePage(param: string | null, totalPages: number): number {
   return Math.min(Math.max(requested, 1), totalPages);
 }
 
+function resolveGenre(param: string | null): string | null {
+  if (!param) return null;
+  const genre = param.trim();
+  return genre.length > 0 ? genre : null;
+}
+
 // Returns true if it handled the request.
 export function handleBooksApi(
   req: IncomingMessage,
@@ -60,19 +87,31 @@ export function handleBooksApi(
   const path = url.pathname;
 
   if (req.method === 'GET' && path === '/books/api/products') {
-    const total = (countStmt.get() as { n: number }).n;
+    const selectedGenre = resolveGenre(url.searchParams.get('genre'));
+    const total = selectedGenre
+      ? (countByGenreStmt.get({ genre: selectedGenre }) as { n: number }).n
+      : (countStmt.get() as { n: number }).n;
     const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
     const page = resolvePage(url.searchParams.get('page'), totalPages);
-    const items = pageStmt.all({
-      limit: PAGE_SIZE,
-      offset: (page - 1) * PAGE_SIZE,
-    }) as unknown as BookProduct[];
-    const body: Page<BookProduct> = {
+    const items = selectedGenre
+      ? (pageByGenreStmt.all({
+          genre: selectedGenre,
+          limit: PAGE_SIZE,
+          offset: (page - 1) * PAGE_SIZE,
+        }) as unknown as BookProduct[])
+      : (pageStmt.all({
+          limit: PAGE_SIZE,
+          offset: (page - 1) * PAGE_SIZE,
+        }) as unknown as BookProduct[]);
+    const genres = (genresStmt.all() as { genre: string }[]).map((row) => row.genre);
+    const body: BookCatalogPage = {
       items,
       total,
       page,
       pageSize: PAGE_SIZE,
       totalPages,
+      genres,
+      selectedGenre,
     };
     sendJson(res, 200, body);
     return true;

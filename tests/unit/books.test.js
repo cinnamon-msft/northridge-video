@@ -4,9 +4,11 @@ import assert from 'node:assert/strict';
 import { handleBooksApi } from '../../apps/books/api/index.ts';
 import { makeReq, makeRes } from './_helpers.js';
 
-function getPage(page) {
+function getPage(page, genre) {
+  const params = new URLSearchParams({ page: String(page) });
+  if (genre) params.set('genre', genre);
   const res = makeRes();
-  handleBooksApi(makeReq('GET', '/books/api/products?page=' + page), res);
+  handleBooksApi(makeReq('GET', '/books/api/products?' + params.toString()), res);
   return res.json();
 }
 
@@ -31,11 +33,33 @@ test('GET /books/api/products returns a paginated envelope', () => {
   assert.ok(body.total > 12, 'seeded catalog should span multiple pages');
   assert.equal(body.items.length, 12);
   assert.equal(body.totalPages, Math.ceil(body.total / 12));
+  assert.equal(body.selectedGenre, null);
+  assert.ok(body.genres.includes('Fantasy'));
+  assert.ok(body.genres.includes('Science Fiction'));
   for (const item of body.items) {
     assert.match(item.sku, /^BK-/);
     assert.equal(typeof item.title, 'string');
     assert.equal(typeof item.price_cents, 'number');
   }
+});
+
+test('GET /books/api/products filters by genre and returns filtered totals', () => {
+  const body = getPage(1, 'Fantasy');
+  assert.equal(body.selectedGenre, 'Fantasy');
+  assert.ok(body.total > 0);
+  assert.equal(body.totalPages, Math.ceil(body.total / 12));
+  for (const item of body.items) {
+    assert.equal(item.genre, 'Fantasy');
+  }
+});
+
+test('GET /books/api/products handles unknown genres with an empty result', () => {
+  const body = getPage(1, 'Not A Real Genre');
+  assert.equal(body.selectedGenre, 'Not A Real Genre');
+  assert.equal(body.total, 0);
+  assert.equal(body.totalPages, 1);
+  assert.equal(body.page, 1);
+  assert.deepEqual(body.items, []);
 });
 
 test('a multi-author book flattens its authors into one string', () => {

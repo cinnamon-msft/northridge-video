@@ -8,6 +8,7 @@ The storefront is a small set of Node services behind a single gateway:
 
 - **One gateway** (TypeScript) on `:3000` is the single entry point. It reverse-proxies each department, serves the shared site chrome, provides cross-department **search** (one SQL query over a unified view, paginated), and the **checkout** endpoint.
 - **Three department apps**, each a single Node process serving *both* its own frontend (via Vite middleware) and its own API. Each department also serves a **product detail page** at `/<department>/<sku>`.
+- The **Books catalog** includes an accessible genre filter sourced from the catalog data, with paginated totals computed against the selected genre.
 - **One shared SQLite database** (`data/northridge.db`) via the built-in `node:sqlite` module — no separate database server. It's normalized (genre/artist/publisher/etc. as lookup tables; book authors and film cast as many-to-many join tables), with views that flatten the joins so application code reads plain rows. Every connection is opened through a single `openDb()` factory that enforces `PRAGMA foreign_keys = ON`.
 - **The cart lives in the browser** (`localStorage`), shared across all departments because everything is served through the gateway origin.
 
