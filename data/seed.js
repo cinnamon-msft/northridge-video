@@ -506,6 +506,9 @@ try {
     return String((10 - (sum % 10)) % 10);
   }
   function nextIsbn() {
+    if (isbnCounter > 999) {
+      throw new Error('Generated book ISBN publication segment exceeded 3-digit limit');
+    }
     const publication = String(isbnCounter++).padStart(3, '0');
     const firstTwelveDigits = `979840000${publication}`;
     return `979-8-40000-${publication}-${isbn13CheckDigit(firstTwelveDigits)}`;
